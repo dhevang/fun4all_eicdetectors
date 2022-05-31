@@ -147,7 +147,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
  // virtual planes in e-e+ & photon Cals
   double LumiSpec_Z = m_Params->get_double_param( "LumiSpec_Z" ) * cm - enclosureCenter;
   double LumiSpec_XY = m_Params->get_double_param( "LumiSpec_XY" ) * cm;
-  double LumiPhotonCAL_Z = m_Params->get_double_param( "LumiPhotonCAL_Z" ) * cm - enclosureCenter;
+  //double LumiPhotonCAL_Z = m_Params->get_double_param( "LumiPhotonCAL_Z" ) * cm - enclosureCenter;
   double LumiPhotonCAL_XY = m_Params->get_double_param( "LumiPhotonCAL_XY" ) * cm;
 
   //double LumiSpec_DZ = m_Params->get_double_param( "LumiSpec_DZ" ) * cm;
@@ -505,7 +505,7 @@ void EICG4LumiDetector::AddCAL( std::string name, G4ThreeVector pos, G4LogicalVo
 }
 
 //_______________________________________________________________
-void EICG4LumiDetector::AddTracker( std::string name, G4ThreeVector pos, G4LogicalVolume *logicWorld )
+void EICG4LumiDetector::AddTracker( std::string name, int copyNum, G4ThreeVector pos, G4LogicalVolume *logicWorld )
 {
 
   G4Box *sheetSolid = new G4Box(name + "_g4solid", 200/2.*mm, 200/2.*mm, 0.3*mm);
@@ -518,7 +518,7 @@ void EICG4LumiDetector::AddTracker( std::string name, G4ThreeVector pos, G4Logic
   sheetLogic->SetVisAttributes(vis);
 
   G4VPhysicalVolume *sheetPhysical = new G4PVPlacement( 0, G4ThreeVector(pos.x(), pos.y(), pos.z()), sheetLogic, 
-    name + "_g4physical", logicWorld, false, 0, OverlapCheck() );
+    name + "_g4physical", logicWorld, false, copyNum, OverlapCheck() );
 
   m_ActivePhysicalVolumesSet.insert( sheetPhysical );
 
@@ -586,7 +586,7 @@ G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double cal
             
       if(i%2==0) pos_y=y01*mm-j*step_y;
       if(i%2!=0) pos_y=y02*mm-j*step_y;
-      G4VPhysicalVolume *physical_scint = new G4PVPlacement(0,G4ThreeVector(pos_x,pos_y, 0.),gapEMLV,m_Name+"_EMGapPhysical",absorberEMLV,false,copynono, OverlapCheck());
+      G4VPhysicalVolume *physical_scint = new G4PVPlacement(0, G4ThreeVector(pos_x,pos_y, 0.), gapEMLV, m_Name+"_EMGapPhysical",absorberEMLV, false, copynono, OverlapCheck());
       
       // Add to active layers
       m_ActivePhysicalVolumesSet.insert( physical_scint );

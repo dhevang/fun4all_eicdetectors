@@ -91,7 +91,7 @@ class EICG4LumiDetector : public PHG4Detector
   void AddCuboid(std::string name, G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double angle, std::string material, G4LogicalVolume *logicWorld);
   void AddRectangularCone(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double eeXY, double phXY, double eeZ, double angle, G4LogicalVolume *logicWorld);
 void AddCAL( std::string name, G4ThreeVector pos, G4LogicalVolume *logicWorld );
-  void AddTracker( std::string name, G4ThreeVector pos, G4LogicalVolume *logicWorld );
+  void AddTracker( std::string name, int layer, G4ThreeVector pos, G4LogicalVolume *logicWorld );
   G4LogicalVolume* MakeTower(G4double calorSizeXY, G4double calorEMZ);
 
   PHParameters *getParams();
