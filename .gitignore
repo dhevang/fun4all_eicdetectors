@@ -17,6 +17,13 @@ config.guess
 config.sub
 ltmain.sh
 
+*.Plo
+*.Po
+*.log
+*.so*
+Makefile
+libtool
+testexternals*
 
 # Have editor/IDE/OS specific files you need to ignore? Consider using a global gitignore: 
 #
