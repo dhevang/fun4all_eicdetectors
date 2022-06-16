@@ -159,10 +159,11 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   double LumiTracker2_XY = m_Params->get_double_param( "LumiTracker2_XY" ) * cm;
   double LumiTracker2_DZ = m_Params->get_double_param( "LumiTracker2_DZ" ) * cm;
 
-  // LumiWin_Thickness*factor for different exit window versions.
+  // LumiWin_Thickness*factor for different exit window versions/Midway Converter.
   double factorV1 = 1.0; 
   double factorV2 = 1.0; 
   double factorV3 = 1.0; 
+  double factorMC = 1.0;
  
   // Initialisation of diff. volume region.
   std::string LumiWin_Material = m_Params->get_string_param( "LumiWin_Material" );
@@ -174,7 +175,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   std::string RecConeMaterial = "G4_AIR";
   std::string ExitWinV2Material = "G4_AIR";
   std::string ExitWinV3Material = "G4_AIR";
-  //std::string MidConvMaterial = "G4_AIR";
+  std::string MidConvMaterial = "G4_AIR";
 
   //Change the material according to Version.
   switch(Version){
@@ -185,7 +186,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
     case 2: TrianTrapMaterial       = "G4_Galactic";
             CuboidMaterial          = "G4_Galactic";
             MagCoreMaterial         = "G4_Galactic";
-            //MidConvMaterial       = LumiWin_Material;
+            MidConvMaterial         = LumiWin_Material;
             ExitWinV2Material       = LumiWin_Material;
             factorV1                = 0.1;
             break;
@@ -195,7 +196,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
             MagCoreMaterial         = "G4_Galactic";
             RecConeMaterial         = "G4_Galactic";
             ExitWinV2Material       = "G4_Galactic";
-            //MidConvMaterial       = LumiWin_Material;	
+            MidConvMaterial         = LumiWin_Material;	
             ExitWinV3Material       = LumiWin_Material;
             factorV1                = 0.1;
             break;
@@ -221,7 +222,8 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   // thickness is factorised
   G4ThreeVector size_ewV2 = G4ThreeVector( LumiWin_Length, LumiWin_Height, factorV2*LumiWin_Thickness );
   G4ThreeVector size_ewV3 = G4ThreeVector( LumiWin_Length, LumiWin_Height, factorV3*LumiWin_Thickness );
-  
+  G4ThreeVector size_midconv = G4ThreeVector( LumiWin_Length, LumiWin_Height, factorMC*LumiWin_Thickness );
+
   // Spectrometer Tracker 2
   G4ThreeVector size_tr2 = G4ThreeVector( LumiTracker2_XY, LumiTracker2_XY, LumiTracker2_DZ );
   G4ThreeVector pos_tr2 = G4ThreeVector( LumiWin_X, pos_lw.y() + LumiPhotonCAL_XY/2.0 + size_tr2.y()/2.0 + 0.01*cm, 
@@ -251,14 +253,17 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   // magnet core material may be Air or Galactic depending on Version
   AddLumiWindow(          size_lw, pos_lw, LumiWin_Tilt, LumiWin_Material, logicWorld);
   AddTriangularTrapezoid( size_lw, pos_lw, LumiWin_Tilt, TrianTrapMaterial, logicWorld);
-  AddCuboid(              size_lw, pos_lw, size_ov, pos_ov, LumiWin_Tilt, CuboidMaterial, logicWorld);
+  //G4LogicalVolume *logicCuboid = AddCuboid(size_lw, pos_lw, size_ov, pos_ov, LumiWin_Tilt, CuboidMaterial, logicWorld);
   AddLumiMag_OuterVessel( size_ov, pos_ov, LumiMag_VesselMaterial, logicWorld);
   AddLumiMag_MagCore(     size_mc, pos_ov, LumiMag_B, MagCoreMaterial, logicWorld);
   
-  // sub-mother volume for trackers and V2/V3 exit windows
+  // sub-mother volume for MidwayConverter, Trackers and V2/V3 exit windows
+  G4LogicalVolume* logicCuboid = AddCuboid(size_lw, pos_lw, size_ov, pos_ov, 
+	LumiWin_Tilt, CuboidMaterial, logicWorld);
   G4LogicalVolume* logicRecCone = AddRecCone( size_lw, pos_lw, size_ov, pos_ov, 
       size_tr2, pos_tr2, LumiWin_Tilt, RecConeMaterial, logicWorld );
-  
+
+  AddMidwayConverter(size_midconv, G4ThreeVector(0.,0.,0.), LumiWin_Tilt, MidConvMaterial , logicCuboid);
   AddExitWindowForV2( size_ewV2, pos_ewV2_daughter, LumiWin_Tilt, ExitWinV2Material, logicRecCone );
 
   //-------------------------------------------------------
@@ -413,8 +418,6 @@ void EICG4LumiDetector::AddTriangularTrapezoid(G4ThreeVector size, G4ThreeVector
 
   G4ExtrudedSolid *solid = new G4ExtrudedSolid(name+"_ExtrudedSolid", polygon, zsections);
 
-  // Logical-Volume{
-
   G4LogicalVolume *logical = new G4LogicalVolume(solid, GetDetectorMaterial(material), name+"_logical");
   //G4LogicalVolume *logical = new G4LogicalVolume(solid, material, name+"_logical");
 
@@ -434,7 +437,7 @@ void EICG4LumiDetector::AddTriangularTrapezoid(G4ThreeVector size, G4ThreeVector
 }
 
 //_______________________________________________________________________________________________________
-void EICG4LumiDetector::AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double angle, std::string material, G4LogicalVolume *logicWorld)
+G4LogicalVolume* EICG4LumiDetector::AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double angle, std::string material, G4LogicalVolume *logicWorld)
 {
   std::string name = "LumiCuboid";
   double dz_cuboid = -1*Mpos.z() - (Msize.z()/2.0) - ( -1*Wpos.z() + ((Wsize.x()/2.0)*TMath::Sin(angle)));
@@ -450,10 +453,23 @@ void EICG4LumiDetector::AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4Thr
   G4VPhysicalVolume *physical = new G4PVPlacement(0, pos_cuboid, logical, name + "_physical", logicWorld, 0, false, OverlapCheck());
   m_PassivePhysicalVolumesSet.insert( physical);
 
-  //return logical; //Used for Midway Convertor only.
+  return logical; //Used for Midway Convertor only.
 }
 
-//_____________________________________________________________________________________________________________
+//________________________________________________________________________________________________________________________________________________________
+void EICG4LumiDetector::AddMidwayConverter(G4ThreeVector Wsize, G4ThreeVector pos_daug, double angle, std::string material, G4LogicalVolume *logicCuboid)
+{
+  std::string name = "LumiExitWinV2";
+  G4Box *solid = new G4Box(name+"solid",(Wsize.x()/2.0)*TMath::Cos(angle) - 0.01*cm, Wsize.y()/2.0 - 0.01*cm, Wsize.z()/2.0);
+
+  G4LogicalVolume *logical = new G4LogicalVolume( solid, GetDetectorMaterial(material), name+"logical");
+  G4VisAttributes *vis = new G4VisAttributes( G4Color(1, 0, 0, 1) );
+  vis->SetForceSolid( true );
+  logical->SetVisAttributes( vis );
+
+  G4VPhysicalVolume *physical = new G4PVPlacement(0, pos_daug, logical, name+"physical", logicCuboid, 0, false, OverlapCheck());
+  m_PassivePhysicalVolumesSet.insert( physical);
+}
 
 //_____________________________________________________________________________________________________________
 G4LogicalVolume* EICG4LumiDetector::AddRecCone(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, G4ThreeVector Tr2size, G4ThreeVector Tr2pos, double angle, std::string material, G4LogicalVolume *logicWorld)

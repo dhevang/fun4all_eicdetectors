@@ -89,8 +89,10 @@ class EICG4LumiDetector : public PHG4Detector
   
   void AddTriangularTrapezoid(G4ThreeVector size, G4ThreeVector pos, double angle, std::string material, G4LogicalVolume *logicWorld);
   
-  void AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double angle, std::string material, G4LogicalVolume *logicWorld);
-  
+  G4LogicalVolume* AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, double angle, std::string material, G4LogicalVolume *logicWorld);
+
+  void AddMidwayConverter(G4ThreeVector Wsize, G4ThreeVector pos_daug, double angle, std::string material, G4LogicalVolume *logicCuboid);
+
   G4LogicalVolume* AddRecCone(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Msize, G4ThreeVector Mpos, G4ThreeVector Tr2size, G4ThreeVector Tr2pos, double angle, std::string material, G4LogicalVolume *logicWorld);
   
   void AddExitWindowForV2(G4ThreeVector size, G4ThreeVector pos_daug, double angle, std::string material, G4LogicalVolume *logicRecCone);
