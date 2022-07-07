@@ -68,9 +68,7 @@ class EICG4LumiDetector : public PHG4Detector
 
   //!@name volume accessors
   //@{
-  int IsInDetector(G4VPhysicalVolume *) const;
-  int IsInVirtualDetector(G4VPhysicalVolume *) const;
-
+  int WhichDetectorPart( G4VPhysicalVolume *) const;
   //@}
 
   int GetDetId(G4VPhysicalVolume *) const;
@@ -97,9 +95,9 @@ class EICG4LumiDetector : public PHG4Detector
   
   void AddLumiTracker( std::string name, int copyNum, G4ThreeVector size, G4ThreeVector pos, G4LogicalVolume *logicRecCone);
   
-  void AddCAL( std::string name, G4ThreeVector size, G4ThreeVector pos, int total_tower, G4LogicalVolume *logicWorld );
+  void AddCAL( G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld );
   
-  G4LogicalVolume* MakeTower(G4double calorSizeXY, G4double calorEMZ);
+  G4LogicalVolume* MakeTower(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter);
   
   void AddExitWindowForV3(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Tr2size, G4ThreeVector Tr2pos, std::string material, G4LogicalVolume *logicWorld);
 
@@ -109,16 +107,16 @@ class EICG4LumiDetector : public PHG4Detector
 
   PHParameters *m_Params;
    
-    // active volumes (e.g. G4_Si)
-    std::set<G4VPhysicalVolume *> m_ActivePhysicalVolumesSet;
-    // virtual volumes (e.g. G4_Galactic)
-    std::map<G4VPhysicalVolume *, int> m_VirtualPhysicalVolumesMap;
-    // passive volumes
-    std::set<G4VPhysicalVolume *> m_PassivePhysicalVolumesSet; 
-    
-  int m_Layer;
-  std::string m_SuperDetector;
+  std::set<G4VPhysicalVolume *> m_DefaultActiveVolSet;
+  std::set<G4VPhysicalVolume *> m_AbsorberVolSet;
+  std::set<G4VPhysicalVolume *> m_SupportVolSet;
+  std::set<G4VPhysicalVolume *> m_VirtualVolSet;
 
+  int m_Layer;
+  int m_AbsorberActiveFlag;
+  int m_SupportActiveFlag;
+  int m_VirtualActiveFlag;
+  std::string m_SuperDetector;
   std::string m_Name;
 
 };

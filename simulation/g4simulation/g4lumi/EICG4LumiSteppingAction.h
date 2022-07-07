@@ -39,9 +39,11 @@ class EICG4LumiSteppingAction : public PHG4SteppingAction
   virtual void SaveLightYield(const int i = 1) { m_SaveLightYieldFlag = i;}
   virtual bool hasMotherSubsystem() const;
   virtual void SaveAllHits(bool i = true){ m_SaveAllHitsFlag = i;}
-  virtual void HitNodeNameCAL(const std::string &name) {m_HitNodeNameCAL=name;}
-  virtual void HitNodeNameTracking(const std::string &name) {m_HitNodeNameTracking=name;}
-  virtual void HitNodeNameVirt(const std::string &name) {m_HitNodeNameVirt = name;}
+  virtual void HitNodeNameCAL(const std::string &name) { m_HitNodeNameCAL = name; }
+  virtual void HitNodeNameAbsorber(const std::string &name) { m_HitNodeNameAbsorber = name; }
+  virtual void HitNodeNameSupport(const std::string &name) { m_HitNodeNameSupport = name; }
+  virtual void HitNodeNameTracking(const std::string &name) { m_HitNodeNameTracking = name; }
+  virtual void HitNodeNameVirt(const std::string &name) { m_HitNodeNameVirt = name;}
 
  private:
 
@@ -54,9 +56,11 @@ class EICG4LumiSteppingAction : public PHG4SteppingAction
   EICG4LumiDetector* m_Detector;
   const PHParameters* m_Params;
   //! pointer to hit container
-  PHG4HitContainer* m_HitContainerCAL;
-  PHG4HitContainer* m_HitContainerTracking;
-  PHG4HitContainer* m_HitContainerVirt;
+  PHG4HitContainer* m_CALHitContainer;
+  PHG4HitContainer* m_AbsorberHitContainer;
+  PHG4HitContainer* m_SupportHitContainer;
+  PHG4HitContainer* m_TrackingHitContainer;
+  PHG4HitContainer* m_VirtHitContainer;
   PHG4Hit* m_Hit;
   PHG4Shower* m_SaveShower;
   G4VPhysicalVolume* m_SaveVolPre;
@@ -78,6 +82,8 @@ class EICG4LumiSteppingAction : public PHG4SteppingAction
   double m_EabsSum;
   double m_EionSum;
   std::string m_HitNodeNameCAL;
+  std::string m_HitNodeNameAbsorber;
+  std::string m_HitNodeNameSupport;
   std::string m_HitNodeNameTracking;
   std::string m_HitNodeNameVirt;
 

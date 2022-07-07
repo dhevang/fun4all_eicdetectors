@@ -46,65 +46,81 @@ int EICG4LumiSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
   m_Detector->SuperDetector(SuperDetector());
   m_Detector->OverlapCheck(CheckOverlap());
 
-  if (GetParams()->get_int_param("active"))
+  std::set<std::string> nodes;
+
+  if ( GetParams()->get_int_param("active") )
   {
     PHNodeIterator iter(topNode);
     PHCompositeNode *dstNode = dynamic_cast<PHCompositeNode *>(iter.findFirst("PHCompositeNode", "DST"));
-  
-     std::string nodename_prefix;
-     std::string nodename_CAL;
-     std::string nodename_tracking;
-     std::string nodename_virt;
-   
-    if (SuperDetector() != "NONE")
-    {
-    // create super detector subnodes
-       PHNodeIterator iter_dst(dstNode);
-       PHCompositeNode *superSubNode = dynamic_cast<PHCompositeNode *>(iter_dst.findFirst("PHCompositeNode", SuperDetector()));
 
-       if (!superSubNode)
-       {
-         superSubNode = new PHCompositeNode(SuperDetector());
-         dstNode->addNode(superSubNode);
-       }
-       dstNode = superSubNode;
-   
-       nodename_prefix = "G4HIT_" + SuperDetector();
+    std::string nodename_prefix;
+    std::string nodename_CAL;
+    std::string nodename_absorber;
+    std::string nodename_support;
+    std::string nodename_tracking;
+    std::string nodename_virt;
+
+    if ( SuperDetector() != "NONE" )
+    {
+      // create super detector subnodes
+      PHNodeIterator iter_dst(dstNode);
+      PHCompositeNode *superSubNode = dynamic_cast<PHCompositeNode *>(iter_dst.findFirst("PHCompositeNode", SuperDetector()));
+
+      if ( ! superSubNode )
+      {
+        superSubNode = new PHCompositeNode(SuperDetector());
+        dstNode->addNode(superSubNode);
+      }
+      dstNode = superSubNode;
+
+      nodename_prefix = "G4HIT_" + SuperDetector();
     }
     else
     {
-       nodename_prefix = "G4HIT_" + Name();
-    }
-    
-    nodename_CAL = nodename_prefix + "_CAL";
-    nodename_tracking = nodename_prefix + "_tracking";
-    nodename_virt = nodename_prefix + "_virt";
-    
-    // Grab hit container if it exists
-    PHG4HitContainer *CAL_hits = findNode::getClass<PHG4HitContainer>(topNode, nodename_CAL);
-    PHG4HitContainer *Tracking_hits = findNode::getClass<PHG4HitContainer>(topNode, nodename_tracking);
-    PHG4HitContainer *Virt_hits = findNode::getClass<PHG4HitContainer>(topNode, nodename_virt);
-    // Create it if it doesn't exist
-    if( ! CAL_hits )
-    {
-      dstNode->addNode( new PHIODataNode<PHObject>( CAL_hits = new PHG4HitContainer(nodename_CAL), nodename_CAL, "PHObject"));
-    }
-    if( ! Tracking_hits )
-    {
-      dstNode->addNode( new PHIODataNode<PHObject>( Tracking_hits = new PHG4HitContainer(nodename_tracking), nodename_tracking, "PHObject"));
-    }
-    if( ! Virt_hits )
-    {
-      dstNode->addNode( new PHIODataNode<PHObject>( Virt_hits = new PHG4HitContainer(nodename_virt), nodename_virt, "PHObject"));
+      nodename_prefix = "G4HIT_" + Name();
     }
 
-    CAL_hits->AddLayer( GetLayer() );
-    Tracking_hits->AddLayer( GetLayer() );
-    Virt_hits->AddLayer( GetLayer() );
+    nodename_CAL = nodename_prefix + "_CAL";
+    nodename_absorber = nodename_prefix + "_absorber";
+    nodename_support = nodename_prefix + "_support";
+    nodename_tracking = nodename_prefix + "_tracking";
+    nodename_virt = nodename_prefix + "_virt";
+
+    nodes.insert( nodename_CAL );
+    nodes.insert( nodename_tracking );
+
+    if ( GetParams()->get_int_param("AbsorberActive" ) ) {
+      nodes.insert( nodename_absorber );
+    }
+    if ( GetParams()->get_int_param("SupportActive" ) ) {
+      nodes.insert( nodename_support );
+    }
+    if ( GetParams()->get_int_param("VirtualActive" ) ) {
+      nodes.insert( nodename_virt );
+    }
+    
+    // Create nodes to store Hits
+    for (auto thisnode : nodes)
+    {
+      PHG4HitContainer* g4_hits = findNode::getClass<PHG4HitContainer>(topNode, thisnode);
+
+      if ( ! g4_hits )
+      {
+        g4_hits = new PHG4HitContainer(thisnode);
+        dstNode->addNode(new PHIODataNode<PHObject>(g4_hits, thisnode, "PHObject"));
+      }
+    }
+
+    // TODO: Is the AddLayer really needed ????
+    //CAL_hits->AddLayer( GetLayer() );
+    //Tracking_hits->AddLayer( GetLayer() );
+    //Virt_hits->AddLayer( GetLayer() );
     
     // Create stepping action
     auto *tmp = new EICG4LumiSteppingAction( this, m_Detector, GetParams() );
     tmp->HitNodeNameCAL( nodename_CAL );
+    tmp->HitNodeNameAbsorber( nodename_absorber );
+    tmp->HitNodeNameSupport( nodename_support );
     tmp->HitNodeNameTracking( nodename_tracking );
     tmp->HitNodeNameVirt( nodename_virt);
     
@@ -121,7 +137,7 @@ int EICG4LumiSubsystem::InitRunSubsystem(PHCompositeNode *topNode)
     (dynamic_cast<EICG4LumiSteppingAction *>(m_SteppingAction))->SaveAllHits(m_SaveAllHitsFlag);
   }
 
-    return 0;
+  return 0;
 }
 //_______________________________________________________________________
 int EICG4LumiSubsystem::process_event(PHCompositeNode *topNode)
@@ -165,6 +181,10 @@ void EICG4LumiSubsystem::SetDefaultParameters()
   set_default_double_param("tmax", NAN);
 
   set_default_int_param("Version", 1);	
+  
+  set_default_int_param("AbsorberActive", 0);	
+  set_default_int_param("SupportActive", 0);	
+  set_default_int_param("VirtualActive", 0);	
 
   set_default_double_param("LumiWin_X", 0.);
   set_default_double_param("LumiWin_Y", 0.);

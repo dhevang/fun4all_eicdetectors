@@ -69,39 +69,51 @@ EICG4LumiDetector::EICG4LumiDetector(PHG4Subsystem *subsys,
   : PHG4Detector(subsys, Node, dnam)
   , m_Params(parameters)
   , m_Layer(lyr)
+  , m_AbsorberActiveFlag( m_Params->get_int_param("AbsorberActive") )
+  , m_SupportActiveFlag( m_Params->get_int_param("SupportActive") )
+  , m_VirtualActiveFlag( m_Params->get_int_param("VirtualActive") )
   , m_Name("Lumi")
 {
 }
 
-int EICG4LumiDetector::IsInDetector(G4VPhysicalVolume *volume) const
-{
-
-  if( m_ActivePhysicalVolumesSet.find( volume ) != m_ActivePhysicalVolumesSet.end() )
-  {
-    return 1;
-  }
-
-  return 0;
-
-}
-
 //_______________________________________________________________
-int EICG4LumiDetector::IsInVirtualDetector(G4VPhysicalVolume *volume) const
+int EICG4LumiDetector::WhichDetectorPart(G4VPhysicalVolume *volume) const
 {
 
-  if( m_VirtualPhysicalVolumesMap.find( volume ) != m_VirtualPhysicalVolumesMap.end() )
-  {
+  // Default active layers (Silicon and Scintillators)
+  if( m_DefaultActiveVolSet.find( volume ) != m_DefaultActiveVolSet.end() ) {
     return 1;
   }
-  return 0;
 
+  // Absorber material
+  if( m_AbsorberActiveFlag ) {
+    if( m_AbsorberVolSet.find( volume ) != m_AbsorberVolSet.end() ) {
+      return -1;
+    }
+  }
+
+  // Support material
+  if( m_SupportActiveFlag ) {
+    if( m_SupportVolSet.find( volume ) != m_SupportVolSet.end() ) {
+      return -2;
+    }
+  }
+
+  // Virtual layers for diagnostics (G4_Galactic)
+  if( m_VirtualActiveFlag ) {
+    if( m_VirtualVolSet.find( volume ) != m_VirtualVolSet.end() ) {
+      return -3;
+    }
+  }
+
+  return 0;
 }
 
 //_______________________________________________________________
 int EICG4LumiDetector::GetDetId(G4VPhysicalVolume *volume) const
 {
   
-  if (IsInDetector(volume))
+  if ( WhichDetectorPart(volume) )
   {
     return 1;
   }
@@ -258,7 +270,6 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   // sub-mother volume for trackers and V2/V3 exit windows
   G4LogicalVolume* logicRecCone = AddRecCone( size_lw, pos_lw, size_ov, pos_ov, 
       size_tr2, pos_tr2, LumiWin_Tilt, RecConeMaterial, logicWorld );
-  
   AddExitWindowForV2( size_ewV2, pos_ewV2_daughter, LumiWin_Tilt, ExitWinV2Material, logicRecCone );
 
   //-------------------------------------------------------
@@ -272,10 +283,9 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   
   //-------------------------------------------------------
   // Spectrometer Calorimeter Towers
-  AddCAL( "TopSpecTower", size_st, G4ThreeVector(LumiWin_X, pos_tr2.y(), LumiSpec_Z), TotalLumiSpecTower, logicWorld );
-  AddCAL( "BotSpecTower", size_st, G4ThreeVector(LumiWin_X, -1*pos_tr2.y(), LumiSpec_Z), TotalLumiSpecTower, logicWorld );
+  AddCAL( size_st, G4ThreeVector(LumiWin_X, pos_tr2.y(), LumiSpec_Z), TotalLumiSpecTower, logicWorld );
   
- return;
+  return;
 }
 
 //_______________________________________________________________
@@ -317,8 +327,7 @@ void EICG4LumiDetector::AddLumiWindow(G4ThreeVector size, G4ThreeVector pos, dou
   G4VPhysicalVolume *physical = new G4PVPlacement(rot_matrix, pos_new, logical, name+"_physical", logicWorld, 0, false, OverlapCheck());
   //G4VPhysicalVolume *physical = new G4PVPlacement(0, pos, logical, name+"_physical", logicWorld, 0, false, OverlapCheck());
 
-  m_PassivePhysicalVolumesSet.insert( physical );
-
+  m_SupportVolSet.insert( physical );
 }
 
 //_____________________________________________________________________________________________________________________________________________
@@ -339,10 +348,10 @@ G4ThreeVector EICG4LumiDetector::AddLumiExitWindow(G4ThreeVector size, G4ThreeVe
   G4RotationMatrix *rot_matrix = new G4RotationMatrix(rot_axis , angle); //is typedef to CLHEP::HepRotation
   G4ThreeVector pos_new = G4ThreeVector(pos.x(), pos.y(), pos.z() - size.z() - factor);
   G4VPhysicalVolume *physical = new G4PVPlacement(rot_matrix, pos_new, logical, name+"_physical", logicWorld, 0, false, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical );
+  
+  m_SupportVolSet.insert( physical );
 
   return pos_new;
-
 }
 
 //________________________________________________________________________________________________________________________________________
@@ -359,8 +368,8 @@ void EICG4LumiDetector::AddLumiMag_OuterVessel( G4ThreeVector size, G4ThreeVecto
   logical->SetVisAttributes( vis );
 
   G4VPhysicalVolume *physical = new G4PVPlacement( 0, pos, logical, name+"_physical", logicWorld, 0, false, OverlapCheck() );
-  m_PassivePhysicalVolumesSet.insert( physical);
-
+  
+  m_SupportVolSet.insert( physical );
 }
 
 //______________________________________________________________________________________________________________________________________________
@@ -380,10 +389,9 @@ void EICG4LumiDetector::AddLumiMag_MagCore(G4ThreeVector size, G4ThreeVector pos
   fman->CreateChordFinder( field );
   logical->SetFieldManager(fman, true);
 
-  G4VPhysicalVolume *physical = new G4PVPlacement( 0, pos, logical, name, logicWorld, 0, false, OverlapCheck() );
-  m_PassivePhysicalVolumesSet.insert( physical);
-
-  //return logical;
+  new G4PVPlacement( 0, pos, logical, name, logicWorld, 0, false, OverlapCheck() );
+  
+  //m_SupportVolSet.insert( physical );
 }
 
 //______________________________________________________________________________________________________________________________________________
@@ -428,9 +436,7 @@ void EICG4LumiDetector::AddTriangularTrapezoid(G4ThreeVector size, G4ThreeVector
   G4VPhysicalVolume *physical = new G4PVPlacement( rot_matrix, pos, logical, name+"_physical", logicWorld, 0, false, OverlapCheck());
 
   // Add it to the list of active volumes so the IsInDetector method picks them up
-  m_PassivePhysicalVolumesSet.insert(physical); 
-
-  //return pos_new;
+  m_SupportVolSet.insert( physical ); 
 }
 
 //_______________________________________________________________________________________________________
@@ -447,8 +453,9 @@ void EICG4LumiDetector::AddCuboid(G4ThreeVector Wsize, G4ThreeVector Wpos, G4Thr
 
   double zpos_cuboid = Wpos.z() - (Wsize.x()/2.0)*TMath::Sin(angle) - dz_cuboid/2.0 ;
   G4ThreeVector pos_cuboid = G4ThreeVector( Wpos.x(), Wpos.y(), zpos_cuboid);
-  G4VPhysicalVolume *physical = new G4PVPlacement(0, pos_cuboid, logical, name + "_physical", logicWorld, 0, false, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical);
+  new G4PVPlacement(0, pos_cuboid, logical, name + "_physical", logicWorld, 0, false, OverlapCheck());
+  
+  //m_SupportVolSet.insert( physical );
 
   //return logical; //Used for Midway Convertor only.
 }
@@ -468,8 +475,9 @@ G4LogicalVolume* EICG4LumiDetector::AddRecCone(G4ThreeVector Wsize, G4ThreeVecto
   logical->SetVisAttributes( vis);
 
   G4ThreeVector pos_rec_cone = G4ThreeVector(Wpos.x(), Wpos.y(), Mpos.z() - Msize.z()/2.0 - dz_rec_cone/2.0);
-  G4VPhysicalVolume *physical = new G4PVPlacement(0, pos_rec_cone, logical, "Lumi_RectangularCone", logicWorld, 0, false, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical);
+  new G4PVPlacement(0, pos_rec_cone, logical, "Lumi_RectangularCone", logicWorld, 0, false, OverlapCheck());
+  
+  //m_SupportVolSet.insert( physical );
 
   return logical;
 }
@@ -486,7 +494,8 @@ void EICG4LumiDetector::AddExitWindowForV2(G4ThreeVector Wsize, G4ThreeVector po
   logical->SetVisAttributes( vis );
 
   G4VPhysicalVolume *physical = new G4PVPlacement(0, pos_daug, logical, name+"physical", logicWorld, 0, false, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical);
+  
+  m_SupportVolSet.insert( physical );
 }
 
 //_______________________________________________________________________________________________________
@@ -503,8 +512,7 @@ void EICG4LumiDetector::AddLumiTracker( std::string name, int copyNum, G4ThreeVe
 
   G4VPhysicalVolume *physical = new G4PVPlacement( 0, pos, logical, name + "_physical", logicWorld, false, copyNum, OverlapCheck() );
 
-  m_ActivePhysicalVolumesSet.insert( physical );
-
+  m_DefaultActiveVolSet.insert( physical );
 }
 
 //____________________________________________________________________________________________________________________________________
@@ -521,58 +529,68 @@ void EICG4LumiDetector::AddExitWindowForV3(G4ThreeVector Wsize, G4ThreeVector Wp
 
   G4ThreeVector pos = G4ThreeVector(Wpos.x(), Wpos.y(), Tr2pos.z() - Tr2size.z()/2.0 - Wsize.z()/2.0);
   G4VPhysicalVolume *physical = new G4PVPlacement(0,pos, logical, name+"physical", logicWorld, 0, false, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical);
-
+  
+  m_SupportVolSet.insert( physical );
 }
 
-
 //_______________________________________________________________________________________________________________________________
-void EICG4LumiDetector::AddCAL( std::string name, G4ThreeVector size, G4ThreeVector pos, int total_tower, G4LogicalVolume *logicWorld )
+void EICG4LumiDetector::AddCAL( G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld )
 {
+  G4int nxy = Ntowers;
+  G4int scint_counter = 0;
+  G4int tower_counter = 0;
 
-  G4int nxy = total_tower; // 32
-  //dimensions for single tower
+  // dimensions for single tower
   G4double towerSizeXY = size.x()/nxy;
-  //geo->GetOptD(nam, "towerSizeXY", towerSizeXY, GeoParser::Unit(mm));
   G4double towerEMZ = size.z();
-  //geo->GetOptD(nam, "towerEMZ", towerEMZ, GeoParser::Unit(mm));
-  //G4double zpos = towerEMZ/2;
-  //G4double zpos = pos.z();
-  //geo->GetOptD(nam, "zpos", zpos, GeoParser::Unit(mm));
 
-  //geo->GetOptI(nam, "nxy", nxy);
-
-  //module size for tower assembly, increased to allow for tower rotation
+  // module size for tower assembly, increased to allow for tower rotation
   G4double modxy = size.x(); //  + 40*mm
   G4double modz = size.z(); //  + 6*mm
 
-  //G4cout << "    modxy: " << modxy << G4endl;
-  //G4cout << "    modz: " << modz << G4endl;
-
-  //top calorimeter volume
+  // -------------------------------------------------------------------
+  // Top calorimeter volume
+  std::string name = "TopSpecCAL";
   G4Box *mods = new G4Box(name+"_mod", modxy/2, modxy/2, modz/2);
-  G4LogicalVolume *modv = new G4LogicalVolume(mods, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name+"_mod");
-  new G4PVPlacement(0, G4ThreeVector(pos.x(), pos.y(), pos.z()), modv, name+"_mod", logicWorld, false, 0, OverlapCheck());
-  //modv->SetVisAttributes(new G4VisAttributes(G4Color(0, 0, 1)));
-  modv->SetVisAttributes( G4VisAttributes::GetInvisible() );
+  G4LogicalVolume *modv_top = new G4LogicalVolume(mods, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name+"_mod");
+  new G4PVPlacement(0, pos, modv_top, name+"_mod", logicWorld, false, 0, OverlapCheck());
+  modv_top->SetVisAttributes( G4VisAttributes::GetInvisible() );
 
   // Construct individual towers
-  G4LogicalVolume *towv = MakeTower(towerSizeXY, towerEMZ);
+  G4LogicalVolume *towv_top = MakeTower(towerSizeXY, towerEMZ, &scint_counter);
 
-  G4int tcnt = 0;
   G4double xypos0 = -(nxy*towerSizeXY)/2 + towerSizeXY/2;
   for(G4int ix=0; ix<nxy; ix++) {
     for(G4int iy=0; iy<nxy; iy++) {
       G4double xpos = xypos0 + ix*towerSizeXY;
       G4double ypos = xypos0 + iy*towerSizeXY;
-      new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv, towv->GetName(), modv, false, tcnt++, OverlapCheck());
+      new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_top, towv_top->GetName(), modv_top, false, tower_counter++, OverlapCheck());
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // Bottom calorimeter volume
+  name = "BottomSpecCAL";
+  G4LogicalVolume *modv_bot = new G4LogicalVolume(mods, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name+"_mod");
+  pos.setY( -pos.y() );
+  new G4PVPlacement(0, pos, modv_bot, name+"_mod", logicWorld, false, 0, OverlapCheck());
+  modv_bot->SetVisAttributes( G4VisAttributes::GetInvisible() );
+
+  // Construct individual towers
+  G4LogicalVolume *towv_bot = MakeTower(towerSizeXY, towerEMZ, &scint_counter);
+
+  for(G4int ix=0; ix<nxy; ix++) {
+    for(G4int iy=0; iy<nxy; iy++) {
+      G4double xpos = xypos0 + ix*towerSizeXY;
+      G4double ypos = xypos0 + iy*towerSizeXY;
+      new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_bot, towv_bot->GetName(), modv_bot, false, tower_counter++, OverlapCheck());
     }
   }
 
 }
 
 //______________________________________________________________________________________________________________________________
-G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double calorEMZ) {
+G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter) {
 
   const double offset=0.5;//in mm
   const double dist=1.0;
@@ -610,41 +628,35 @@ G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double cal
                                      calorSizeXY/2, calorSizeXY/2, calorEMZ/2); // its size
   absorberEMLV = new G4LogicalVolume(absorberEM,EMCal_abs_mat, m_Name+"_AbsoEM");
   G4VPhysicalVolume *physical_absorber = new G4PVPlacement(0,G4ThreeVector(0.,0.,0.),absorberEMLV, m_Name+"_AbsoEM_p",calorEM,false,0, OverlapCheck());
-  m_PassivePhysicalVolumesSet.insert( physical_absorber );
+  
+  m_AbsorberVolSet.insert( physical_absorber );
 
-  G4VSolid* gapEM = new G4Tubs(m_Name+"_GapEM",             // its name0, pos, sheetLogic, name + "_g4physical", logicWorld, false, 0, OverlapCheck() );
-                               0.0, 0.235*mm, calorEMZ/2,0.0,360.0 * deg); // its size//0.0 * deg, 360.0 * deg
+  G4VSolid* gapEM = new G4Tubs(m_Name+"_GapEM", 0.0, 0.235*mm, calorEMZ/2,0.0,360.0 * deg);
     
   //Fibers
   G4LogicalVolume* gapEMLV;
   gapEMLV = new G4LogicalVolume(gapEM,gapMaterial2, m_Name);
-  int copynono=0;
+  //int copynono=0;
   double step_x=(dist/2.0)*mm;
   double step_y=(2.0*h)*mm;
   //G4cout<<"Nx: "<<nx1<<" Ny1: "<<ny1<<" Ny2: "<<ny2<<" step_x: "<<step_x<<" step_y: "<<step_y<<" x0: "<<x0<<" y01: "<<y01<<" y02: "<<y02<<G4endl;
 
   for(int i=0;i<nx1;i++){
+    
     G4double pos_x=x0*mm+i*step_x;
     G4double pos_y=0.0;
-    //if(i==(nFibAr-1)) continue;
-    // if(i%2==0) pos_x=(-29.95+i*(0.05))*cm;
-    // if(i%2!=0) pos_x=(-29.9+i*(0.05))*cm;
-    // pos_x=(-29.95+i*(0.1))*cm;
     int jend=(i%2==0) ? ny1 : ny2;
+    
     for(int j=0;j<jend;j++){
-            
             
       if(i%2==0) pos_y=y01*mm-j*step_y;
       if(i%2!=0) pos_y=y02*mm-j*step_y;
-      G4VPhysicalVolume *physical_scint = new G4PVPlacement(0,G4ThreeVector(pos_x,pos_y, 0.),gapEMLV,m_Name+"_EMGapPhysical",absorberEMLV,false,copynono, OverlapCheck());
+      G4VPhysicalVolume *physical_scint = new G4PVPlacement(0,G4ThreeVector(pos_x,pos_y, 0.),gapEMLV,m_Name+"_EMGapPhysical",absorberEMLV,false, *scint_counter, OverlapCheck());
       
-      // Add to active layers
-      m_ActivePhysicalVolumesSet.insert( physical_scint );
+      // Add scintillator fiber to active layers
+      m_DefaultActiveVolSet.insert( physical_scint );
 
-      //new G4PVPlacement(0,G4ThreeVector(pos_x,pos_y, 0.),gapEMLV,"EMGapPhysical",absorberEMLV,0,copynono);//first try
-      copynono++;
-      //G4cout<<"Point # "<<copynono<<" x: "<<pos_x<<" y: "<<pos_y<<G4endl;
-
+      (*scint_counter)++;
     }
   }
 

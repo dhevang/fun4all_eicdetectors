@@ -68,9 +68,11 @@ EICG4LumiSteppingAction::EICG4LumiSteppingAction(EICG4LumiSubsystem *subsys, EIC
   , m_Subsystem(subsys)
   , m_Detector(detector)
   , m_Params(parameters)
-  , m_HitContainerCAL(nullptr)
-  , m_HitContainerTracking(nullptr)
-  , m_HitContainerVirt(nullptr)
+  , m_CALHitContainer(nullptr)
+  , m_AbsorberHitContainer(nullptr)
+  , m_SupportHitContainer(nullptr)
+  , m_TrackingHitContainer(nullptr)
+  , m_VirtHitContainer(nullptr)
   , m_Hit(nullptr)
   , m_SaveShower(nullptr)
   , m_SaveVolPre(nullptr)
@@ -112,14 +114,25 @@ bool EICG4LumiSteppingAction::UserSteppingAction(const G4Step *aStep,bool was_us
   G4LogicalVolume *volumeLogical = volume->GetLogicalVolume();
   G4Material *mat = volumeLogical->GetMaterial();
 
-  int activeMaterial = m_Detector->IsInDetector(volume);
-  int virtualMaterial = m_Detector->IsInVirtualDetector(volume);
-  int trackingMaterial = (mat->GetName().compareTo("G4_Si")==0) ? 1 : 0;
+  // whichactive
+  //  0 : not part of detector or unwanted part
+  //  1 : Default active layer
+  // -1 : Absorber material
+  // -2 : Support material
+  // -3 : Virtual diagnostics layers
+  int whichactive = m_Detector->WhichDetectorPart( volume );
 
-  if ( !activeMaterial && !virtualMaterial )
+  if ( ! whichactive )
   {
     return false;
   }
+
+  //return false;
+
+  //int activeMaterial = m_Detector->IsInDetector(volume);
+  //int virtualMaterial = m_Detector->IsInVirtualDetector(volume);
+  int trackingMaterial = ( mat->GetName().compareTo("G4_Si") == 0 ) ? 1 : 0;
+
   // collect energy and track length step by step
   G4double edep = aStep->GetTotalEnergyDeposit() / GeV;
   G4double eion = (aStep->GetTotalEnergyDeposit() - aStep->GetNonIonizingEnergyDeposit()) / GeV;
@@ -357,23 +370,32 @@ bool EICG4LumiSteppingAction::UserSteppingAction(const G4Step *aStep,bool was_us
     {
       m_Hit->set_layer(layer_id);
       m_Hit->set_hit_type(layer_type);
-      if( activeMaterial ) 
+     
+      if( whichactive == 1 ) 
       {
         if( trackingMaterial ) {
-          m_HitContainerTracking->AddHit(layer_id, m_Hit);
+          m_TrackingHitContainer->AddHit(layer_id, m_Hit);
         }
         else {
-          m_HitContainerCAL->AddHit(layer_id, m_Hit);
+          m_CALHitContainer->AddHit(layer_id, m_Hit);
         }
       }
-      if( virtualMaterial ) 
+      if( whichactive == -1 ) 
       {
-        m_HitContainerVirt->AddHit(layer_id, m_Hit);
+        m_AbsorberHitContainer->AddHit(layer_id, m_Hit);
+      }
+      if( whichactive == -2 ) 
+      {
+        m_SupportHitContainer->AddHit(layer_id, m_Hit);
+      }
+      if( whichactive == -3 ) 
+      {
+        m_VirtHitContainer->AddHit(layer_id, m_Hit);
       }
 
       if (m_SaveShower)
       {
-        m_SaveShower->add_g4hit_id(m_HitContainerCAL->GetID(), m_Hit->get_hit_id());
+        m_SaveShower->add_g4hit_id(m_CALHitContainer->GetID(), m_Hit->get_hit_id());
       }
       m_Hit = nullptr;
     }
@@ -390,29 +412,42 @@ bool EICG4LumiSteppingAction::UserSteppingAction(const G4Step *aStep,bool was_us
 //____________________________________________________________________________..
 void EICG4LumiSteppingAction::SetInterfacePointers(PHCompositeNode *topNode)
 {
-  //std::string hitnodename = "G4HIT_" + m_Detector->GetName();
+  m_CALHitContainer = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameCAL);
+  m_AbsorberHitContainer = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameAbsorber);
+  m_SupportHitContainer = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameSupport);
+  m_TrackingHitContainer = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameTracking);
+  m_VirtHitContainer = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameVirt);
+  
 
-  // now look for the map and grab a pointer to it.
-  m_HitContainerCAL = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameCAL);
-  m_HitContainerTracking = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameTracking);
-  m_HitContainerVirt = findNode::getClass<PHG4HitContainer>(topNode, m_HitNodeNameVirt);
-
-  // if we do not find the node we need to make it.
-  if (!m_HitContainerCAL)
+  if ( ! m_CALHitContainer )
   {
     std::cout << PHWHERE << " EICG4LumiSteppingAction::SetTopNode - unable to find "
               << m_HitNodeNameCAL << std::endl;
     
     gSystem->Exit(1);
   }
-  if (!m_HitContainerTracking)
+  if ( ! m_AbsorberHitContainer && m_Params->get_int_param("AbsorberActive") )
+  {
+    std::cout << PHWHERE << " EICG4LumiSteppingAction::SetTopNode - unable to find "
+              << m_HitNodeNameAbsorber << std::endl;
+    
+    gSystem->Exit(1);
+  }
+  if ( ! m_SupportHitContainer && m_Params->get_int_param("SupportActive") )
+  {
+    std::cout << PHWHERE << " EICG4LumiSteppingAction::SetTopNode - unable to find "
+              << m_HitNodeNameSupport << std::endl;
+    
+    gSystem->Exit(1);
+  }
+  if ( ! m_TrackingHitContainer )
   {
     std::cout << PHWHERE << " EICG4LumiSteppingAction::SetTopNode - unable to find "
               << m_HitNodeNameTracking << std::endl;
     
     gSystem->Exit(1);
   }
-  if (!m_HitContainerVirt)
+  if ( ! m_VirtHitContainer && m_Params->get_int_param("VirtualActive") )
   {
     std::cout << PHWHERE << " EICG4LumiSteppingAction::SetTopNode - unable to find "
               << m_HitNodeNameVirt << std::endl;
