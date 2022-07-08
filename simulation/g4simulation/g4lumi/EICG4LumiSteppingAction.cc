@@ -115,6 +115,7 @@ bool EICG4LumiSteppingAction::UserSteppingAction(const G4Step *aStep,bool was_us
   int activeMaterial = m_Detector->IsInDetector(volume);
   int virtualMaterial = m_Detector->IsInVirtualDetector(volume);
   int trackingMaterial = (mat->GetName().compareTo("G4_Si")==0) ? 1 : 0;
+  //int trackingMaterial = (mat->GetName().compareTo("G4_Galactic")==0) ? 1 : 0;
 
   if ( !activeMaterial && !virtualMaterial )
   {

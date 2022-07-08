@@ -496,6 +496,7 @@ void EICG4LumiDetector::AddLumiTracker( std::string name, int copyNum, G4ThreeVe
   G4Box *solid = new G4Box(name + "_solid", size.x()/2.0 , size.y()/2.0 , size.z()/2.0);
 
   G4LogicalVolume *logical = new G4LogicalVolume( solid, G4NistManager::Instance()->FindOrBuildMaterial("G4_Si"), name + "_logical");
+  //G4LogicalVolume *logical = new G4LogicalVolume( solid, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name + "_logical");
 
   G4VisAttributes *vis = new G4VisAttributes( G4Color(1.0, 1.0, 0.0, 1.0) );
   vis->SetForceSolid(true);
