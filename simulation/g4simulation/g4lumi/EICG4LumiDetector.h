@@ -95,10 +95,11 @@ class EICG4LumiDetector : public PHG4Detector
   
   void AddLumiTracker( std::string name, int copyNum, G4ThreeVector size, G4ThreeVector pos, G4LogicalVolume *logicRecCone);
   
-  void AddCAL( G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld );
+  void AddCAL( int TowerType, G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld );
   
-  G4LogicalVolume* MakeTower(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter);
-  
+  G4LogicalVolume* MakeTowerScifi(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter);
+  G4LogicalVolume* MakeTowerCrystal(G4double calorSizeXY, G4double calorEMZ );
+
   void AddExitWindowForV3(G4ThreeVector Wsize, G4ThreeVector Wpos, G4ThreeVector Tr2size, G4ThreeVector Tr2pos, std::string material, G4LogicalVolume *logicWorld);
 
   PHParameters *getParams();

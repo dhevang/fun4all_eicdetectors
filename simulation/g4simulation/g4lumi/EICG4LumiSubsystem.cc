@@ -180,7 +180,9 @@ void EICG4LumiSubsystem::SetDefaultParameters()
   set_default_double_param("tmin", NAN);
   set_default_double_param("tmax", NAN);
 
-  set_default_int_param("Version", 1);	
+  set_default_int_param("Version", 1);
+
+  set_default_int_param("CalType", 1);  
   
   set_default_int_param("AbsorberActive", 0);	
   set_default_int_param("SupportActive", 0);	

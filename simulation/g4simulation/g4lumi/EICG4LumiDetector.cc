@@ -137,6 +137,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   
   // Version # of the Luminosity Monitor Design.
   int Version = m_Params->get_int_param( "Version" );
+  int CalType = m_Params->get_int_param( "CalType" );
   
   // Primary Lumi Exit Window
   double LumiWin_X = m_Params->get_double_param( "LumiWin_X" ) * cm;
@@ -283,7 +284,7 @@ void EICG4LumiDetector::ConstructMe(G4LogicalVolume *logicWorld)
   
   //-------------------------------------------------------
   // Spectrometer Calorimeter Towers
-  AddCAL( size_st, G4ThreeVector(LumiWin_X, pos_tr2.y(), LumiSpec_Z), TotalLumiSpecTower, logicWorld );
+  AddCAL( CalType, size_st, G4ThreeVector(LumiWin_X, pos_tr2.y(), LumiSpec_Z), TotalLumiSpecTower, logicWorld );
   
   return;
 }
@@ -523,20 +524,21 @@ void EICG4LumiDetector::AddExitWindowForV3(G4ThreeVector Wsize, G4ThreeVector Wp
   std::string name = "LumiExitWinV3";
   G4Box *solid = new G4Box(name+"_solid",Tr2size.x()/2.0 + 1*cm, Tr2size.y() + Tr2pos.y()/2.0 + 2.0*cm, Wsize.z()/2.0);//2.0cm to adjust the overlap due to conical shape.
 
-  G4LogicalVolume *logical = new G4LogicalVolume( solid, GetDetectorMaterial(material),name+"logical");
+  G4LogicalVolume *logical = new G4LogicalVolume( solid, GetDetectorMaterial(material),name+"_logical");
   G4VisAttributes *vis = new G4VisAttributes( G4Color(1, 0, 0, 1) );
   vis->SetForceSolid( true );
   logical->SetVisAttributes( vis );
 
   G4ThreeVector pos = G4ThreeVector(Wpos.x(), Wpos.y(), Tr2pos.z() - Tr2size.z()/2.0 - Wsize.z()/2.0);
-  G4VPhysicalVolume *physical = new G4PVPlacement(0,pos, logical, name+"physical", logicWorld, 0, false, OverlapCheck());
+  G4VPhysicalVolume *physical = new G4PVPlacement(0,pos, logical, name+"_physical", logicWorld, 0, false, OverlapCheck());
   
   m_SupportVolSet.insert( physical );
 }
 
 //_______________________________________________________________________________________________________________________________
-void EICG4LumiDetector::AddCAL( G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld )
+void EICG4LumiDetector::AddCAL( int TowerType, G4ThreeVector size, G4ThreeVector pos, int Ntowers, G4LogicalVolume *logicWorld )
 {
+
   G4int nxy = Ntowers;
   G4int scint_counter = 0;
   G4int tower_counter = 0;
@@ -556,42 +558,76 @@ void EICG4LumiDetector::AddCAL( G4ThreeVector size, G4ThreeVector pos, int Ntowe
   G4LogicalVolume *modv_top = new G4LogicalVolume(mods, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name+"_mod");
   new G4PVPlacement(0, pos, modv_top, name+"_mod", logicWorld, false, 0, OverlapCheck());
   modv_top->SetVisAttributes( G4VisAttributes::GetInvisible() );
+  G4LogicalVolume *towv_top = nullptr;
 
-  // Construct individual towers
-  G4LogicalVolume *towv_top = MakeTower(towerSizeXY, towerEMZ, &scint_counter);
-
-  G4double xypos0 = -(nxy*towerSizeXY)/2 + towerSizeXY/2;
-  for(G4int ix=0; ix<nxy; ix++) {
-    for(G4int iy=0; iy<nxy; iy++) {
-      G4double xpos = xypos0 + ix*towerSizeXY;
-      G4double ypos = xypos0 + iy*towerSizeXY;
-      new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_top, towv_top->GetName(), modv_top, false, tower_counter++, OverlapCheck());
-    }
-  }
-
-  // -------------------------------------------------------------------
   // Bottom calorimeter volume
   name = "BottomSpecCAL";
   G4LogicalVolume *modv_bot = new G4LogicalVolume(mods, G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic"), name+"_mod");
   pos.setY( -pos.y() );
   new G4PVPlacement(0, pos, modv_bot, name+"_mod", logicWorld, false, 0, OverlapCheck());
   modv_bot->SetVisAttributes( G4VisAttributes::GetInvisible() );
+  G4LogicalVolume *towv_bot = nullptr;
+
+  //cout<<"TowerType "<< TowerType<<endl;
 
   // Construct individual towers
-  G4LogicalVolume *towv_bot = MakeTower(towerSizeXY, towerEMZ, &scint_counter);
+  switch(TowerType)
+  {
+  	case 1: towv_top = MakeTowerScifi( towerSizeXY, towerEMZ, &scint_counter);
+ 		towv_bot = MakeTowerScifi( towerSizeXY, towerEMZ, &scint_counter);
+		break;
 
+	case 2: towv_top = MakeTowerCrystal( towerSizeXY, towerEMZ );
+ 		towv_bot = MakeTowerCrystal( towerSizeXY, towerEMZ );
+		break;
+
+	default: cout<<" Wrong Choice "<<endl;
+  
+  }
+ 
+  //Top Cal Matrix
+  G4double xypos0 = -(nxy*towerSizeXY)/2 + towerSizeXY/2;
   for(G4int ix=0; ix<nxy; ix++) {
     for(G4int iy=0; iy<nxy; iy++) {
       G4double xpos = xypos0 + ix*towerSizeXY;
       G4double ypos = xypos0 + iy*towerSizeXY;
-      new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_bot, towv_bot->GetName(), modv_bot, false, tower_counter++, OverlapCheck());
+      G4VPhysicalVolume *physical = new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_top, towv_top->GetName(), modv_top, false, tower_counter++, OverlapCheck());
+      if (TowerType == 2 ) {m_DefaultActiveVolSet.insert( physical );}
+    }
+  }
+
+  //Bottom Cal Matrix
+  for(G4int ix=0; ix<nxy; ix++) {
+    for(G4int iy=0; iy<nxy; iy++) {
+      G4double xpos = xypos0 + ix*towerSizeXY;
+      G4double ypos = xypos0 + iy*towerSizeXY;
+      G4VPhysicalVolume *physical = new G4PVPlacement(0, G4ThreeVector(xpos, ypos, 0), towv_bot, towv_bot->GetName(), modv_bot, false, tower_counter++, OverlapCheck());
+      if (TowerType == 2 ) {m_DefaultActiveVolSet.insert( physical );}
     }
   }
 
 }
 
+//_________________________________________________________________________________________________________________
+G4LogicalVolume* EICG4LumiDetector::MakeTowerCrystal( G4double calorSizeXY, G4double calorEMZ ){
+
+  std::string name = "crystal_tower";
+  
+  //solid for a single tower in crystal calorimeter.
+  G4VSolid* solid = new G4Box(name+"_solid", calorSizeXY/2.0, calorSizeXY/2.0, calorEMZ/2.0);
+
+  //logical  
+  G4Material* material = G4NistManager::Instance()->FindOrBuildMaterial("G4_PbWO4");
+  G4LogicalVolume *logical = new G4LogicalVolume( solid, material,name+"_logical");
+  G4VisAttributes *vis = new G4VisAttributes( G4Color(1, 0, 1) );
+  vis->SetForceSolid( true );
+  logical->SetVisAttributes( vis );
+
+  return logical;
+}
+
 //______________________________________________________________________________________________________________________________
-G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter) {
+G4LogicalVolume* EICG4LumiDetector::MakeTowerScifi(G4double calorSizeXY, G4double calorEMZ, G4int *scint_counter) {
 
   const double offset=0.5;//in mm
   const double dist=1.0;
@@ -602,7 +638,7 @@ G4LogicalVolume* EICG4LumiDetector::MakeTower(G4double calorSizeXY, G4double cal
   const int ny1=int((tot_len-offset)/(2*h))+1;
   const int ny2=int((tot_len-offset-h)/(2*h))+1;
 
-  const double x0=-((tot_len/2.0)-offset);
+  const double x0 =-((tot_len/2.0)-offset);
   const double y01=((tot_len/2.0)-offset);
   const double y02=((tot_len/2.0)-offset-h);
 
